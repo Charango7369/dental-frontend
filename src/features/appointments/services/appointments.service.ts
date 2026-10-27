@@ -9,6 +9,12 @@ export type AppointmentStatus =
   | 'CANCELLED'
   | 'NO_SHOW';
 
+export interface DoctorSummary {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export interface AppointmentCreate {
   patient_id: string;
   doctor_id: string;
@@ -22,6 +28,11 @@ export interface AppointmentUpdate {
   start_time?: string;
   end_time?: string;
   reason?: string;
+}
+
+export interface AppointmentReschedulePayload {
+  start_time: string;
+  end_time: string;
 }
 
 export interface AppointmentCompletePayload {
@@ -38,17 +49,50 @@ export interface Appointment {
   reason?: string;
   status: AppointmentStatus;
   patient?: Patient;
+  doctor?: DoctorSummary;
+}
+
+export interface AppointmentFilterParams {
+  start_date?: string;
+  end_date?: string;
+  patient_id?: string;
+  doctor_id?: string;
+  status?: string;
+  search?: string;
+}
+
+export interface AppointmentMetricsToday {
+  total_today: number;
+  attended_today: number;
+  pending_today: number;
+  confirmed_today: number;
+  cancelled_today: number;
+  estimated_income_today: number;
 }
 
 export const appointmentsService = {
-  getDaily: async (startDate: string, endDate: string): Promise<Appointment[]> => {
+  getAll: async (params?: AppointmentFilterParams): Promise<Appointment[]> => {
+    const response = await apiClient.get<Appointment[]>('/appointments', { params });
+    return response.data;
+  },
+
+  getDaily: async (startDate: string, endDate: string, extra?: { doctor_id?: string; search?: string; status?: string }): Promise<Appointment[]> => {
     const response = await apiClient.get<Appointment[]>('/appointments', {
-      params: { start_date: startDate, end_date: endDate },
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+        ...extra,
+      },
     });
     return response.data;
   },
 
-  // Historial completo de un paciente (sin límite de fechas)
+  getMetricsToday: async (): Promise<AppointmentMetricsToday> => {
+    const response = await apiClient.get<AppointmentMetricsToday>('/appointments/metrics/today');
+    return response.data;
+  },
+
+  // Historial completo de un paciente
   getByPatient: async (patientId: string): Promise<Appointment[]> => {
     const response = await apiClient.get<Appointment[]>('/appointments', {
       params: { patient_id: patientId },
@@ -63,6 +107,16 @@ export const appointmentsService = {
 
   update: async (id: string, data: AppointmentUpdate): Promise<Appointment> => {
     const response = await apiClient.patch<Appointment>(`/appointments/${id}`, data);
+    return response.data;
+  },
+
+  reschedule: async (id: string, payload: AppointmentReschedulePayload): Promise<Appointment> => {
+    const response = await apiClient.patch<Appointment>(`/appointments/${id}/reschedule`, payload);
+    return response.data;
+  },
+
+  sendReminder: async (id: string): Promise<{ message: string; recipient: string }> => {
+    const response = await apiClient.post<{ message: string; recipient: string }>(`/appointments/${id}/send-reminder`);
     return response.data;
   },
 

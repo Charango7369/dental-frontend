@@ -15,6 +15,7 @@ import { AccountDetail } from './features/billing/ui/AccountDetail';
 import { IncomeReport } from './features/reports/ui/IncomeReport';
 import { UsersList } from './features/users/ui/UsersList';
 import { TenantsList } from './features/platform/ui/TenantsList';
+import { ClinicStaffList } from './features/platform/ui/staff/ClinicStaffList';
 import { useAuthStore } from './store/authStore';
 
 // ─── Página de Configuración (solo ADMIN) ─────────────────────────────────────
@@ -108,6 +109,7 @@ export const App = () => (
             {/* Solo SUPER_ADMIN (dueño de la plataforma) */}
             <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
               <Route path="/platform/tenants" element={<TenantsList />} />
+              <Route path="/platform/tenants/:clinicId/staff" element={<ClinicStaffList />} />
             </Route>
           </Route>
         </Route>

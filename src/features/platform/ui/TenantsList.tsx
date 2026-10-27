@@ -1,5 +1,6 @@
 // src/features/platform/ui/TenantsList.tsx
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTenants, useCreateTenant, useUpdateTenant } from '../hooks/useTenants';
 
 // ─── Modal: crear clínica + primer admin ──────────────────────────────────────
@@ -126,6 +127,7 @@ const CreateTenantModal = ({ onClose }: { onClose: () => void }) => {
 // ─── Componente principal ────────────────────────────────────────────────────
 
 export const TenantsList = () => {
+  const navigate = useNavigate();
   const { data: tenants, isLoading, isError, refetch } = useTenants();
   const { mutate: updateTenant } = useUpdateTenant();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -195,16 +197,29 @@ export const TenantsList = () => {
               <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
                 Creada el {new Date(tenant.created_at).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
-              <button
-                onClick={() => toggleActive(tenant.id, tenant.is_active)}
-                className={`w-full mt-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  tenant.is_active
-                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                    : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                }`}
-              >
-                {tenant.is_active ? 'Desactivar clínica' : 'Reactivar clínica'}
-              </button>
+              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/platform/tenants/${tenant.id}/staff`)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/80 transition flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span>Ver Personal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleActive(tenant.id, tenant.is_active)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                    tenant.is_active
+                      ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/60'
+                      : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200/60'
+                  }`}
+                >
+                  {tenant.is_active ? 'Desactivar' : 'Activar'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

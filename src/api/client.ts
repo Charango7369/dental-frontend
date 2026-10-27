@@ -25,25 +25,35 @@ apiClient.interceptors.request.use(
 /* ---------------------- RESPONSE INTERCEPTOR ---------------------- */
 const extractDetail = (data: unknown): string => {
   if (typeof data === 'string') return data;
-  if (data && typeof data === 'object' && 'detail' in data) {
-    const detail = (data as { detail?: unknown }).detail;
-    if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail)) return detail.map((d) => d?.msg ?? JSON.stringify(d)).join(' | ');
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.detail === 'string') return obj.detail;
+    if (Array.isArray(obj.detail)) return obj.detail.map((d) => (typeof d === 'string' ? d : (d as { msg?: string })?.msg ?? JSON.stringify(d))).join(' | ');
+    if (typeof obj.message === 'string') return obj.message;
   }
-  return 'Error desconocido del servidor.';
+  return 'Error del servidor.';
 };
 
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: AxiosError<{ detail?: unknown }>) => {
+  (error: AxiosError<{ detail?: unknown; message?: string }>) => {
     const status = error.response?.status ?? 0;
+    const isLoginEndpoint = error.config?.url?.includes('/auth/login');
 
     if (status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      if (!isLoginEndpoint) {
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+        return Promise.reject({
+          status: 401,
+          message: 'Sesión expirada. Inicie sesión nuevamente.',
+        } satisfies ApiError);
+      }
+
+      // Si es el login, devolvemos el mensaje exacto de credenciales incorrectas
       return Promise.reject({
         status: 401,
-        message: 'Sesión expirada. Inicie sesión nuevamente.',
+        message: extractDetail(error.response?.data) || 'Correo electrónico o contraseña incorrectos.',
       } satisfies ApiError);
     }
 

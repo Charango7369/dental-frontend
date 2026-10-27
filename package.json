@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
@@ -18,6 +19,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@cloudflare/kv-asset-handler": "^0.5.0",
+    "@cloudflare/vite-plugin": "^1.44.0",
     "@tanstack/eslint-plugin-query": "^5.101.0",
     "@types/node": "^25.9.3",
     "@types/react": "^18.3.12",
@@ -27,6 +30,7 @@
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.6.2",
-    "vite": "^6.0.1"
+    "vite": "^6.0.1",
+    "wrangler": "^4.110.0"
   }
 }
