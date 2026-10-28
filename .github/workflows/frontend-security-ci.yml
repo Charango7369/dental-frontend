@@ -1,0 +1,47 @@
+name: Frontend DevSecOps CI
+
+on:
+  push:
+    branches: [ master, main, staging ]
+  pull_request:
+    branches: [ master, main, staging ]
+
+permissions:
+  contents: read
+
+jobs:
+  security-audit:
+    name: Frontend Security Audit & Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Gitleaks Secret Detection
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Dependency Vulnerability Audit (NPM Audit)
+        run: npm audit --audit-level=critical
+
+      - name: TypeScript Static Typecheck
+        run: npx tsc -b
+
+      - name: Production Vite Build
+        run: npx vite build
+
+      - name: Run Frontend Security Test Suite
+        run: node --test tests/security/frontend_security.test.mjs

@@ -1,6 +1,8 @@
 // tests/security/frontend_security.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 test('Frontend Security: LocalStorage Token Isolation', () => {
   // Simular mock de localStorage
@@ -72,4 +74,19 @@ test('Frontend Security: RBAC Role Authorization with Default Deny', () => {
 
   // Usuario sin roles (Default Deny)
   assert.equal(evaluatePermission([], ['ADMIN', 'DOCTOR']), false);
+});
+
+test('Frontend Security: Cloudflare Security Headers Configuration (_headers)', () => {
+  const headersPath = path.resolve('public', '_headers');
+  assert.ok(fs.existsSync(headersPath), 'El archivo public/_headers debe existir para Cloudflare');
+
+  const content = fs.readFileSync(headersPath, 'utf8');
+
+  // Comprobar cabeceras requeridas por OWASP
+  assert.ok(content.includes('X-Frame-Options: DENY'), 'Debe forzar X-Frame-Options: DENY');
+  assert.ok(content.includes('X-Content-Type-Options: nosniff'), 'Debe forzar X-Content-Type-Options: nosniff');
+  assert.ok(content.includes('Strict-Transport-Security: max-age='), 'Debe forzar HSTS estricto');
+  assert.ok(content.includes('Content-Security-Policy:'), 'Debe definir Content-Security-Policy estricta');
+  assert.ok(content.includes('Permissions-Policy:'), 'Debe definir Permissions-Policy de hardware');
+  assert.ok(content.includes('Referrer-Policy: strict-origin-when-cross-origin'), 'Debe forzar Referrer-Policy estricta');
 });
