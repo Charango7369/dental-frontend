@@ -10,7 +10,7 @@ export interface ClinicStaffMember {
   roles: ClinicRole[];
   tenant_id: string;
   is_active: boolean;
-  hashed_password: string;
+  hashed_password?: string;
   created_at?: string;
 }
 
@@ -37,7 +37,7 @@ export interface PasswordResetResponse {
   message: string;
   user_id: string;
   temporary_password?: string | null;
-  hashed_password: string;
+  hashed_password?: string;
 }
 
 export const clinicStaffService = {

@@ -14,13 +14,16 @@ const parseRoles = (raw: string): string[] => {
   }
 };
 
-const normalizeUser = (raw: LoginResponse['user']): User => ({
-  id: raw.id,
-  full_name: raw.full_name,
-  email: raw.email,
-  roles: parseRoles(raw.roles),
-  tenant_id: raw.tenant_id,
-});
+const normalizeUser = (raw: LoginResponse['user']): User => {
+  if (!raw) throw new Error('Datos de usuario no disponibles.');
+  return {
+    id: raw.id,
+    full_name: raw.full_name,
+    email: raw.email,
+    roles: parseRoles(raw.roles),
+    tenant_id: raw.tenant_id,
+  };
+};
 
 export const authService = {
   login: async (email: string, password: string): Promise<User> => {
@@ -34,9 +37,61 @@ export const authService = {
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
 
-    const { access_token, user } = response.data;
+    const { access_token, refresh_token, user, mfa_required, mfa_token } = response.data;
+
+    // Si la cuenta tiene MFA activo, notificamos al consumidor de la API
+    if (mfa_required && mfa_token) {
+      throw new Error(`MFA_REQUIRED:${mfa_token}`);
+    }
+
+    if (!access_token || !user) {
+      throw new Error('Respuesta de autenticación incompleta.');
+    }
+
     const normalized = normalizeUser(user);
-    useAuthStore.getState().setAuth(access_token, normalized);
+    useAuthStore.getState().setAuth(access_token, normalized, refresh_token);
     return normalized;
+  },
+
+  mfaChallenge: async (mfaToken: string, code: string): Promise<User> => {
+    const response: AxiosResponse<LoginResponse> = await apiClient.post('/auth/mfa/challenge', {
+      mfa_token: mfaToken,
+      code,
+    });
+
+    const { access_token, refresh_token, user } = response.data;
+    if (!access_token || !user) {
+      throw new Error('Respuesta de desafío MFA incompleta.');
+    }
+
+    const normalized = normalizeUser(user);
+    useAuthStore.getState().setAuth(access_token, normalized, refresh_token);
+    return normalized;
+  },
+
+  setupMFA: async () => {
+    const res = await apiClient.post<{ secret: string; otpauth_url: string; instructions: string }>('/auth/mfa/setup');
+    return res.data;
+  },
+
+  verifyMFA: async (code: string) => {
+    const res = await apiClient.post<{ success: boolean; message: string }>('/auth/mfa/verify', { code });
+    return res.data;
+  },
+
+  disableMFA: async (password: string, code: string) => {
+    const res = await apiClient.post<{ success: boolean; message: string }>('/auth/mfa/disable', { password, code });
+    return res.data;
+  },
+
+  logout: async () => {
+    const refreshToken = useAuthStore.getState().refreshToken;
+    try {
+      await apiClient.post('/auth/logout', { refresh_token: refreshToken });
+    } catch {
+      // Ignorar fallos de red durante el logout
+    } finally {
+      useAuthStore.getState().logout();
+    }
   },
 };

@@ -122,14 +122,6 @@ export const PasswordResetModal = ({
               </div>
             )}
 
-            {/* Nuevo hash generado */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              <p className="text-slate-500 font-semibold text-[11px] mb-1">Nuevo Hash Bcrypt en BD:</p>
-              <p className="font-mono text-[10px] text-slate-700 break-all bg-white p-2 rounded-lg border border-slate-200 select-all">
-                {result.hashed_password}
-              </p>
-            </div>
-
             <button
               type="button"
               onClick={onClose}

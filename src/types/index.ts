@@ -1,17 +1,20 @@
+// src/types/index.ts
+
+export type Role = 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'SUPER_ADMIN';
+
+export interface UserRaw {
+  id: string;
+  full_name: string;
+  email: string;
+  roles: string; // JSON stringified: '["ADMIN","DOCTOR"]'
+  tenant_id: string;
+}
+
 export interface User {
   id: string;
   full_name: string;
   email: string;
   roles: string[];
-  tenant_id: string;
-}
-
-/** Modelo crudo tal como lo envía FastAPI (roles JSON-stringified). */
-export interface UserRaw {
-  id: string;
-  full_name: string;
-  email: string;
-  roles: string; // ej. '["ADMIN","DOCTOR"]'
   tenant_id: string;
 }
 
@@ -28,9 +31,19 @@ export interface Patient {
 }
 
 export interface LoginResponse {
-  access_token: string;
+  access_token?: string;
+  refresh_token?: string;
   token_type: string;
-  user: UserRaw;
+  user?: UserRaw;
+  mfa_required?: boolean;
+  mfa_token?: string;
+  message?: string;
+}
+
+export interface TokenRefreshResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }
 
 /** Error tipado que devuelven los interceptores de Axios. */
