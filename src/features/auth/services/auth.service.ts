@@ -1,7 +1,7 @@
-import type { AxiosResponse } from 'axios';
-import { apiClient } from '../../../api/client';
+import axios, { type AxiosResponse } from 'axios';
+import { apiClient, API_URL } from '../../../api/client';
 import { useAuthStore } from '../../../store/authStore';
-import type { User, LoginResponse } from '../../../types';
+import type { User, LoginResponse, TokenRefreshResponse } from '../../../types';
 
 const parseRoles = (raw: string): string[] => {
   try {
@@ -26,6 +26,10 @@ const normalizeUser = (raw: LoginResponse['user']): User => {
 };
 
 export const authService = {
+  /**
+   * Inicio de sesión con almacenamiento seguro:
+   * Guarda el Access Token en memoria volátil (RAM) y el Refresh Token en Cookie HttpOnly.
+   */
   login: async (email: string, password: string): Promise<User> => {
     const payload = new URLSearchParams();
     payload.append('username', email);
@@ -37,9 +41,9 @@ export const authService = {
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
 
-    const { access_token, refresh_token, user, mfa_required, mfa_token } = response.data;
+    const { access_token, user, csrf_token, mfa_required, mfa_token } = response.data;
 
-    // Si la cuenta tiene MFA activo, notificamos al consumidor de la API
+    // Desafío MFA requerido
     if (mfa_required && mfa_token) {
       throw new Error(`MFA_REQUIRED:${mfa_token}`);
     }
@@ -49,23 +53,70 @@ export const authService = {
     }
 
     const normalized = normalizeUser(user);
-    useAuthStore.getState().setAuth(access_token, normalized, refresh_token);
+    // Guarda el token únicamente en memoria RAM del store
+    useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
     return normalized;
   },
 
+  /**
+   * Rehidratación de Sesión Silenciosa:
+   * Al recargar la página (F5), consulta al backend usando la Cookie HttpOnly existente
+   * para obtener un nuevo Access Token en memoria sin interrupción para el usuario.
+   */
+  initAuth: async (): Promise<User | null> => {
+    try {
+      const response = await axios.post<TokenRefreshResponse>(
+        `${API_URL}/auth/refresh`,
+        {},
+        { withCredentials: true, timeout: 8_000 }
+      );
+
+      const { access_token, user, csrf_token } = response.data;
+
+      if (access_token && user) {
+        const normalized = normalizeUser(user);
+        useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
+        return normalized;
+      }
+
+      // Si no devolvió user en el refresh, consultamos /auth/me
+      if (access_token) {
+        useAuthStore.getState().setToken(access_token);
+        if (csrf_token) useAuthStore.getState().setCsrfToken(csrf_token);
+
+        const meResponse = await apiClient.get<LoginResponse['user']>('/auth/me');
+        if (meResponse.data) {
+          const normalized = normalizeUser(meResponse.data);
+          useAuthStore.getState().setUser(normalized);
+          useAuthStore.getState().setInitializing(false);
+          return normalized;
+        }
+      }
+
+      useAuthStore.getState().logout();
+      return null;
+    } catch {
+      useAuthStore.getState().logout();
+      return null;
+    }
+  },
+
+  /**
+   * Desafío de Segundo Factor (MFA TOTP).
+   */
   mfaChallenge: async (mfaToken: string, code: string): Promise<User> => {
     const response: AxiosResponse<LoginResponse> = await apiClient.post('/auth/mfa/challenge', {
       mfa_token: mfaToken,
       code,
     });
 
-    const { access_token, refresh_token, user } = response.data;
+    const { access_token, user, csrf_token } = response.data;
     if (!access_token || !user) {
       throw new Error('Respuesta de desafío MFA incompleta.');
     }
 
     const normalized = normalizeUser(user);
-    useAuthStore.getState().setAuth(access_token, normalized, refresh_token);
+    useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
     return normalized;
   },
 
@@ -84,14 +135,19 @@ export const authService = {
     return res.data;
   },
 
+  /**
+   * Cierre de sesión seguro con limpieza de memoria y destrucción de cookies HttpOnly.
+   */
   logout: async () => {
-    const refreshToken = useAuthStore.getState().refreshToken;
     try {
-      await apiClient.post('/auth/logout', { refresh_token: refreshToken });
+      await apiClient.post('/auth/logout', {});
     } catch {
-      // Ignorar fallos de red durante el logout
+      // Ignorar fallos de red al cerrar sesión
     } finally {
       useAuthStore.getState().logout();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
   },
 };

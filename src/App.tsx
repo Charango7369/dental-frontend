@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -17,6 +17,7 @@ import { UsersList } from './features/users/ui/UsersList';
 import { TenantsList } from './features/platform/ui/TenantsList';
 import { ClinicStaffList } from './features/platform/ui/staff/ClinicStaffList';
 import { useAuthStore } from './store/authStore';
+import { authService } from './features/auth/services/auth.service';
 
 // ─── Página de Configuración (solo ADMIN) ─────────────────────────────────────
 
@@ -33,8 +34,6 @@ const AdminSettings = () => (
 );
 
 // ─── Redirección inteligente según rol ─────────────────────────────────────────
-// El SUPER_ADMIN no pertenece a una clínica real, así que su "home" es el
-// panel de plataforma (Clínicas), no el Dashboard clínico.
 
 const parseRoles = (roles: string | string[] | undefined): string[] => {
   if (!roles) return [];
@@ -44,6 +43,19 @@ const parseRoles = (roles: string | string[] | undefined): string[] => {
 
 const HomeRedirect = () => {
   const user = useAuthStore((s) => s.user);
+  const isInitializing = useAuthStore((s) => s.isInitializing);
+
+  if (isInitializing) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+          <p className="text-sm font-medium text-slate-300">Cargando plataforma médica...</p>
+        </div>
+      </div>
+    );
+  }
+
   const roles = parseRoles(user?.roles);
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
   return <Navigate to={isSuperAdmin ? '/platform/tenants' : '/dashboard'} replace />;
@@ -82,41 +94,48 @@ const ProtectedLayout = () => {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
-export const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <Routes>
-        {/* Pública */}
-        <Route path="/login" element={<Login />} />
+export const App = () => {
+  useEffect(() => {
+    // 🛡️ FASE 3: Inicialización silenciosa de sesión vía Cookie HttpOnly cross-origin
+    authService.initAuth();
+  }, []);
 
-        {/* Privada */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<ProtectedLayout />}>
-            <Route path="/dashboard"    element={<Dashboard />} />
-            <Route path="/patients"     element={<PatientsList />} />
-            <Route path="/patients/:id" element={<PatientDetail />} />
-            <Route path="/agenda"       element={<DailyAgenda />} />
-            <Route path="/billing"      element={<BillingList />} />
-            <Route path="/billing/:id"  element={<AccountDetail />} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          {/* Pública */}
+          <Route path="/login" element={<Login />} />
 
-            {/* Solo ADMIN de la clínica */}
-            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-              <Route path="/settings" element={<AdminSettings />} />
-              <Route path="/reports"  element={<IncomeReport />} />
-              <Route path="/users"    element={<UsersList />} />
-            </Route>
+          {/* Privada */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<ProtectedLayout />}>
+              <Route path="/dashboard"    element={<Dashboard />} />
+              <Route path="/patients"     element={<PatientsList />} />
+              <Route path="/patients/:id" element={<PatientDetail />} />
+              <Route path="/agenda"       element={<DailyAgenda />} />
+              <Route path="/billing"      element={<BillingList />} />
+              <Route path="/billing/:id"  element={<AccountDetail />} />
 
-            {/* Solo SUPER_ADMIN (dueño de la plataforma) */}
-            <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
-              <Route path="/platform/tenants" element={<TenantsList />} />
-              <Route path="/platform/tenants/:clinicId/staff" element={<ClinicStaffList />} />
+              {/* Solo ADMIN de la clínica */}
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+                <Route path="/settings" element={<AdminSettings />} />
+                <Route path="/reports"  element={<IncomeReport />} />
+                <Route path="/users"    element={<UsersList />} />
+              </Route>
+
+              {/* Solo SUPER_ADMIN (dueño de la plataforma) */}
+              <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+                <Route path="/platform/tenants" element={<TenantsList />} />
+                <Route path="/platform/tenants/:clinicId/staff" element={<ClinicStaffList />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
 
-        <Route path="/" element={<HomeRedirect />} />
-        <Route path="*" element={<HomeRedirect />} />
-      </Routes>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="*" element={<HomeRedirect />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+};

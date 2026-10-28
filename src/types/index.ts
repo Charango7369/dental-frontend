@@ -35,6 +35,7 @@ export interface LoginResponse {
   refresh_token?: string;
   token_type: string;
   user?: UserRaw;
+  csrf_token?: string;
   mfa_required?: boolean;
   mfa_token?: string;
   message?: string;
@@ -42,8 +43,10 @@ export interface LoginResponse {
 
 export interface TokenRefreshResponse {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   token_type: string;
+  csrf_token?: string;
+  user?: UserRaw;
 }
 
 /** Error tipado que devuelven los interceptores de Axios. */
