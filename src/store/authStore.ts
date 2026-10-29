@@ -1,3 +1,4 @@
+import { queryClient } from '../api/queryClient';
 // src/store/authStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -46,7 +47,14 @@ export const useAuthStore = create<AuthState>()(
       setCsrfToken: (csrfToken) => set({ csrfToken }),
       setUser: (user) => set({ user }),
       setInitializing: (isInitializing) => set({ isInitializing }),
-      logout: () => set({ token: null, csrfToken: null, user: null, isInitializing: false }),
+      logout: () => {
+        try {
+          queryClient.clear();
+        } catch {
+          // ignore
+        }
+        set({ token: null, csrfToken: null, user: null, isInitializing: false });
+      },
     }),
     {
       name: 'dental-auth-storage',

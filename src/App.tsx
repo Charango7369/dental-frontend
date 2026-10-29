@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './api/queryClient';
 
 import { Login } from './features/auth/ui/Login';
 import { Sidebar } from './features/auth/ui/Sidebar';
@@ -61,17 +62,7 @@ const HomeRedirect = () => {
   return <Navigate to={isSuperAdmin ? '/platform/tenants' : '/dashboard'} replace />;
 };
 
-// ─── Query Client ─────────────────────────────────────────────────────────────
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// ─── Query Client configurado centralmente en src/api/queryClient.ts ─────
 
 // ─── Layout principal con sidebar ────────────────────────────────────────────
 

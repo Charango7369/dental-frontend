@@ -1,3 +1,4 @@
+import { queryClient } from '../../../api/queryClient';
 import axios, { type AxiosResponse } from 'axios';
 import { apiClient, API_URL } from '../../../api/client';
 import { useAuthStore } from '../../../store/authStore';
@@ -54,6 +55,7 @@ export const authService = {
 
     const normalized = normalizeUser(user);
     // Guarda el token únicamente en memoria RAM del store
+    queryClient.clear();
     useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
     return normalized;
   },
@@ -75,7 +77,8 @@ export const authService = {
 
       if (access_token && user) {
         const normalized = normalizeUser(user);
-        useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
+        queryClient.clear();
+    useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
         return normalized;
       }
 
@@ -116,6 +119,7 @@ export const authService = {
     }
 
     const normalized = normalizeUser(user);
+    queryClient.clear();
     useAuthStore.getState().setAuth(access_token, normalized, csrf_token);
     return normalized;
   },
